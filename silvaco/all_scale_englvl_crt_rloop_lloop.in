@@ -1,0 +1,134 @@
+LOOP steps = 3
+assign name=r n.value=(1.5, 2, 2.5)
+
+LOOP steps = 2
+assign name=l n.value=(7, 9)
+
+go atlas simflags="-P 4"
+
+set Filename=Nanowire_r$'r'_l$'l'
+## source & drain length
+set sl=0.01
+set dl=0.01
+
+## channel length
+set cl=$l*0.001
+## channel radius
+set cr=$r*0.001
+## channel oxide thickness
+set cot=0.0005
+################### meshing
+mesh cylindrical
+#########################################################################################
+#
+x.m l=0.000    		s=0.0001
+x.m l=$cr      		s=0.0001
+x.m l=$cr+$cot		s=0.00025
+
+y.m l=0.000    		s=0.0001
+y.m l=$sl+$cl+$dl 	s=0.0001
+#########################################################################################
+# region etablishment
+#
+region  num=1   x.min=0.00 x.max=$cr	  y.min=0.000  y.max=$sl+$cl+$dl  silicon 
+region  num=2   x.min=$cr  x.max=$cr+$cot y.min=0.000  y.max=$sl+$cl+$dl  sio2
+#########################################################################################
+# electrode definition
+electrode num=1 name= source x.max=$cr   	y.max=0.000 
+electrode num=2 name= drain  x.max=$cr  	y.min=$sl+$cl+$dl
+electrode num=3 name= gate   x.min=$cr+$cot	y.min=$sl  	y.max=$sl+$cl
+#########################################################################################
+# contact definition
+#
+contact name=source  reflect
+contact name=drain   reflect 
+contact name=gate    workfun=4.8
+#n.polysilicon 
+##########################################################################################
+# doping definition
+#
+doping region=1  y.min=0.0000   y.max=$sl	  p.type uniform conc=1.0E20
+doping region=1  y.min=$sl+$cl  y.max=$sl+$cl+$dl p.type uniform conc=1.0E20
+##########################################################################################
+# model definition
+#
+models p.quantum ^quantum fermi p.schro sp.geom=1dx negf_ms qcrit.negf=1E-6 \ 
+esize.negf=1E4 sp.smooth num.band=3 eigen=2 print 
+#^esize.negf=1E5 
+#^num.dir=3
+#npred.negf=1E4 fixed.fermi quantum
+#eigen=2 print
+#num.dir=3 
+#eigen=1
+#^dd_ms ^ox.schro ^ox.poisson 
+##########################################################################################
+# method definition
+#
+method carr=0 climit=1e-6 maxtraps=100 itlimit=1000  
+output band.par con.band val.band eigens=2 esizeout.negf=300
+################ englvl ##################################
+solve init
+save outf=$"Filename"_Init.str negf.log
+
+solve v2=-0.6 v3=0.0 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg00.str negf.log
+
+solve v2=-0.6 v3=-0.1 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg01.str negf.log
+
+solve v2=-0.6 v3=-0.2 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg02.str negf.log
+
+solve v2=-0.6 v3=-0.3 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg03.str negf.log
+
+solve v2=-0.6 v3=-0.4 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg04.str negf.log
+
+solve v2=-0.6 v3=-0.5 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg05.str negf.log 
+
+solve v2=-0.6 v3=-0.6 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg06.str negf.log
+
+solve v2=-0.6 v3=-0.7 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg07.str negf.log
+
+solve v2=-0.6 v3=-0.8 qfactor=1E-4
+save outf=$"Filename"_Vd06Vg08.str negf.log
+################ idvg #####################################
+solve init
+#solve pre 
+log outf=IdVg_$"Filename".log
+solve v2=-0.6
+solve v3=0.1 vstep=-0.01 vfinal=-0.8 name=gate
+log off
+################ idvd #####################################
+solve init
+log outf=IdVd_$"Filename"045.log
+solve v3=-0.45
+solve v2=0.1 vstep=-0.01 vfinal=-0.8 name=drain
+log off
+log outf=IdVd_$"Filename"050.log
+solve v3=-0.5
+solve v2=0.1 vstep=-0.01 vfinal=-0.8 name=drain
+log off
+solve init
+log outf=IdVd_$"Filename"055.log
+solve v3=-0.55
+solve v2=0.1 vstep=-0.01 vfinal=-0.8 name=drain
+log off
+solve init
+log outf=IdVd_$"Filename"060.log
+solve v3=-0.6
+solve v2=0.1 vstep=-0.01 vfinal=-0.8 name=drain
+log off
+############### plot ######################################
+tonyplot -overlay $"Filename"_Vd06Vg00.str $"Filename"_Vd06Vg01.str $"Filename"_Vd06Vg02.str $"Filename"_Vd06Vg03.str $"Filename"_Vd06Vg04.str $"Filename"_Vd06Vg05.str $"Filename"_Vd06Vg06.str $"Filename"_Vd06Vg07.str $"Filename"_Vd06Vg08.str
+tonyplot IdVg_$"Filename".log 
+tonyplot -overlay IdVd_$"Filename"045.log IdVd_$"Filename"050.log IdVd_$"Filename"055.log IdVd_$"Filename"060.log 
+
+L.END
+L.END
+
+quit

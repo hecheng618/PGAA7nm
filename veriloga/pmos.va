@@ -1,0 +1,67 @@
+// VerilogA for pgaa, pgaa_r2_l10, veriloga
+
+`include "constants.vams"
+`include "disciplines.vams"
+
+module pgaa_r2_l10(d,g,s);
+	inout d,g,s;
+	electrical d,g,s;
+
+	parameter real nm = 1e-9;
+	parameter real r = 2; 
+	parameter real l = 12; 
+	parameter real vbi = -1.36;
+	parameter real T = 300;
+	parameter real m0 = 9.10938e-31;
+	parameter real perox = 3.9;
+	parameter real persi = 11.8;
+	parameter real mr = 0.49;
+	parameter real mz = 0.49;
+	parameter real eg = 1.08; 
+	parameter real wgc = 0.63;
+	parameter real tox = 0.5; 
+	parameter real nxy = 1; 
+	parameter real H01 = 0.7819;
+	parameter real bz = 2.40483;
+
+	real vgs, vds;
+	real vt, hbar;
+	real cox, gamma, k1, k2, kk;
+	real aa, ab, zmx, expgmzm, dugz,dugl,dug;
+	real ws, englvl, E01Q;
+	real eta1, eta2, Id; 
+
+	analog begin
+		vgs = V(g,s);
+		vds = V(d,s);
+
+		vt = 0.0259; //0.0258522;//(`P_K*T)/`P_Q;
+		hbar = 1.05457e-34;//`P_H/(2*`M_PI);
+
+		//cox = 9.723e-10;//9.72318e-10; //2*`M_PI*perox*`P_EPS0/log(1 + tox/r);
+		gamma = 7.352;//7.352e8; //7.35154e8 ;//2*sqrt(2*cox)/sqrt(cox*pow(r*nm,2)+8*persi*`P_EPS0*`M_PI*pow(r*nm,2));
+		k1 = 1.48141; //(pow(1-pow(gamma*r*nm/2,2),2)+pow(gamma*r*nm/2,2)*(1+4*`M_PI*persi*`P_EPS0/cox));
+		k2 = 6780.79; //exp(gamma*l*nm)-exp(-gamma*l*nm);
+		kk = 1/(k1*k2);
+
+		aa = 0.0001*(vds+1*(vbi-vgs+wgc)); //0.0000995506*(vds+0.999853*(vbi-vgs+wgc)); // kk*((vbi - vgs + wgc)*(1 - exp(-gamma*l*nm)) + vds);
+		ab = 0.0001*(-vds+6779.79*(vbi-vgs+wgc)); //0.0000995506*(-vds+6779.79*(vbi-vgs+wgc)); // kk*((vbi - vgs + wgc)*(exp(gamma*l*nm) - 1) - vds);
+		zmx = 0.068*log((((-vds+6779.79*(vbi-vgs+wgc)))/(vds+1*(vbi-vgs+wgc)))); //6.8013e-10*log((((-vds+6779.79*(vbi-vgs+wgc)))/(vds+0.999853*(vbi-vgs+wgc)))); //1/(2*gamma)*log(ab/aa);
+		expgmzm = sqrt((-vds+6779.79*(vbi-vgs+wgc))/(vds+0.999853*(vbi-vgs+wgc)));
+		dugz = aa*exp(gamma*zmx) + ab*exp(-gamma*zmx);
+		dugl=0.0206883*(-1 + sqrt(1 + 1.31696*log(1 + exp(0.89*(-46.1248 + (38.682*(0.63 - vgs)))))));
+		dug=dugz+dugl;
+
+//		ws = vgs - wgc + 1.3503*dugz; //vgs - wgc + 4*`M_PI*persi*`P_EPS0*dugz/cox;
+		ws = vgs - wgc + 1.3503*dug;
+		englvl = 0.112418; //pow(hbar*bz/(r*nm),2)/(2*mr*m0*`P_Q);
+		E01Q = -ws - eg - (englvl + H01*dugz);
+
+		eta1 = E01Q;
+		eta2 = E01Q + vds;
+		Id = 2.00306e-6*nxy*(log(1+exp(eta1/vt))-log(1+exp(eta2/vt))); //(`P_Q*`P_K*T)*nxy*(log(1+exp(eta1/vt))-log(1+exp(eta2/vt)))/(`M_PI*hbar);
+
+		I(s,d) <+ Id;
+	end
+
+endmodule

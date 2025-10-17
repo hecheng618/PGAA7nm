@@ -1,0 +1,61 @@
+`include "disciplines.vams"
+`include "constants.vams"
+
+module gaamosfet(d,g,s);
+inout d,g,s;
+electrical d,g,s;
+
+parameter real m0=9.1100e-31;
+parameter real perch=11.90;
+parameter real perox=3.90;
+parameter real mc=0.19;
+parameter real mr=0.314;
+parameter real wgc=0.33;
+parameter real vbi=0.21;
+parameter real t=300;
+parameter real tox=0.5e-9;
+parameter real r=2e-9;
+parameter real L=12e-9;
+parameter real nxy=4;
+parameter real bz=2.4;
+parameter real h00=0.7820;
+
+real cox, a, b, c_val;
+real deltaug_0, deltaug_L, alpha, gamma, zmax;
+real vgs, vds, vt;
+real deltaug, deltaugz, unideltaug, ws, Id;
+real energy01;
+
+analog begin
+vgs=V(g,s);
+vds=V(d,s);
+vt = `P_K * t / `P_Q;
+
+cox = 2 * `M_PI * perox * `P_EPS0 / log(1 + tox / r);
+a = pow(`M_PI, 4) * pow(`P_H / (2 * `M_PI), 2) * pow(perch * `P_EPS0, 2) / (2 * pow(`P_Q, 3) * mc * m0);
+b = h00 + 4 * `M_PI * perch * `P_EPS0 / cox;
+c_val = wgc + pow(`P_H / (2 * `M_PI), 2) * pow(bz, 2) / (`P_Q * 2 * mr * pow(r, 2));
+deltaug = b / (2 * a) * (-1 + sqrt(1 + (4 * a) / (pow(b, 2)) * (1/25.0) * log(1 + exp(25 * (vgs - c_val)))));
+
+alpha = (4 * `M_PI * perch * `P_EPS0 / cox + 1) * pow(r, 2);
+gamma = sqrt(4 / alpha);
+deltaug_0 = (-vbi + vgs - wgc) * pow(r, 2) / alpha;
+deltaug_L = (-vbi + vgs - wgc - vds) * pow(r, 2) / alpha;
+zmax = log((deltaug_0 * exp(gamma * L) + deltaug_L) / (deltaug_0 * exp(-gamma * L) + deltaug_L)) / (2 * gamma);
+
+deltaugz = deltaug_0 * (exp(gamma*(L-zmax)) - exp(-(gamma*(L-zmax)))) / (exp(gamma*L) - exp(-gamma*L)) + deltaug_L * (exp(gamma*zmax) - exp(-(gamma*zmax))) / (exp(gamma*L) - exp(-gamma*L));
+if (deltaugz < 0) begin
+    deltaugz = 0;
+end
+
+unideltaug = deltaug + (1 / (1 + exp(-0.6 * ((vgs - (wgc + pow(`P_H / (2 * `M_PI), 2) * pow(bz, 2) / (`P_Q * 2 * mr * pow(r, 2)))) + 3)))) * deltaugz;
+
+energy01 = pow(`P_H / (2 * `M_PI), 2) / (2 * mr * m0) * pow((bz / r), 2) + `P_Q * h00 * unideltaug;
+
+Id = `P_Q * `P_K * t / (`M_PI * `P_H) * (nxy * log(1 + exp(1/vt * (vgs - wgc - 4 * `M_PI * perch * `P_EPS0 / cox * unideltaug) - energy01/`P_Q)) - nxy * log(1 + exp(1/vt * (vgs - wgc - 4 * `M_PI * perch * `P_EPS0 / cox * unideltaug) - energy01/`P_Q - vds/vt)));
+
+I(d,s)<+Id;
+
+end
+
+endmodule
